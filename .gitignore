@@ -4,3 +4,5 @@ database.db
 *.db
 docs/
 .continue-here.md
+notes.md
+SAD_EN_Requirements.md
