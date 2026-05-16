@@ -1,6 +1,8 @@
 node_modules/
 .env
 database.db
+database.db-shm
+database.db-wal
 *.db
 docs/
 .continue-here.md
