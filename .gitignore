@@ -4,7 +4,3 @@ database.db
 database.db-shm
 database.db-wal
 *.db
-docs/
-.continue-here.md
-notes.md
-SAD_EN_Requirements.md
