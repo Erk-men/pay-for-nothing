@@ -1,0 +1,239 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Pay for Nothing API",
+    "version": "1.0.0",
+    "description": "Users pay simulated money for nothing and compete on a public leaderboard."
+  },
+  "servers": [{ "url": "http://localhost:3000/api" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      },
+      "Donation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "amount": { "type": "number" },
+          "note": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      },
+      "LeaderboardEntry": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "total": { "type": "number" },
+          "donation_count": { "type": "integer" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } }
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Create a new account",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "email", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "VoidPayer" },
+                  "email": { "type": "string", "example": "void@example.com" },
+                  "password": { "type": "string", "example": "securepass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Account created" },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Email or username already taken" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login and receive JWT token",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "void@example.com" },
+                  "password": { "type": "string", "example": "securepass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Invalidate current JWT",
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Logged out" },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "summary": "Get your profile",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Not authenticated" }
+        }
+      },
+      "put": {
+        "summary": "Update display name",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username"],
+                "properties": { "username": { "type": "string", "example": "NewName" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Too short" },
+          "409": { "description": "Name taken" }
+        }
+      },
+      "delete": {
+        "summary": "Delete account and all donations",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/donations": {
+      "post": {
+        "summary": "Add a donation",
+        "tags": ["Donations"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount"],
+                "properties": {
+                  "amount": { "type": "number", "example": 42.00 },
+                  "note": { "type": "string", "example": "I have too much money" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Donation created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Donation" } } } },
+          "400": { "description": "Invalid amount" }
+        }
+      }
+    },
+    "/donations/mine": {
+      "get": {
+        "summary": "Get your donation history",
+        "tags": ["Donations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of donations", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Donation" } } } } }
+        }
+      }
+    },
+    "/donations/{id}": {
+      "delete": {
+        "summary": "Delete one of your donations",
+        "tags": ["Donations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "403": { "description": "Not your donation" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "summary": "Get public ranked leaderboard",
+        "tags": ["Leaderboard"],
+        "responses": {
+          "200": { "description": "Rankings", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/LeaderboardEntry" } } } } }
+        }
+      }
+    },
+    "/certificate/pdf": {
+      "get": {
+        "summary": "Download your PDF certificate",
+        "tags": ["Certificate"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "PDF file", "content": { "application/pdf": {} } },
+          "400": { "description": "No donations yet" },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    }
+  }
+}
