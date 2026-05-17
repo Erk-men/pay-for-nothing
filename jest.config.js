@@ -3,4 +3,5 @@ module.exports = {
     setupFiles: ['./tests/setup.js'],
     testMatch: ['**/tests/**/*.test.js'],
     verbose: true,
+    forceExit: true,
   };

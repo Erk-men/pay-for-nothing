@@ -24,7 +24,7 @@ Built as a course project for Systems Analysis and Design — Spring 2026.
 ## Project Structure
 
 ```
-├── frontend/
+├── public/
 │   ├── index.html
 │   ├── app.js
 │   ├── auth.js
@@ -76,15 +76,7 @@ PORT=3000
 JWT_SECRET=your_secret_key_here
 ```
 
-### 4. Initialize the database
-
-```bash
-npm run db:init
-```
-
-This creates the SQLite database and runs the schema.
-
-### 5. Start the server
+### 4. Start the server
 
 ```bash
 # Production
@@ -104,7 +96,7 @@ The server runs at `http://localhost:3000`.
 npm test
 ```
 
-Tests cover all service-layer business logic (auth, donations, leaderboard). Routes are not tested.
+Tests cover service-layer business logic (auth, donations, leaderboard) and API routes.
 
 ---
 
@@ -180,8 +172,8 @@ POST /api/donations
 **Example response:**
 ```json
 [
-  { "rank": 1, "username": "void_lord", "total": 420.00 },
-  { "rank": 2, "username": "nihilist99", "total": 100.50 }
+  { "username": "void_lord", "total": 420.00, "donation_count": 5 },
+  { "username": "nihilist99", "total": 100.50, "donation_count": 2 }
 ]
 ```
 

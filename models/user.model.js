@@ -1,28 +1,31 @@
-// Veritabanı bağlantısını alır — '../' bir üst klasöre çıkar (models → proje kökü)
 const db = require('../db/connection');
 
-function createUser(username, email, hashedPassword) {
-    // SQL sorgusunu önceden hazırlar — her çağrıda tekrar parse edilmez, daha verimli
-    const stmt = db.prepare(
-        'INSERT INTO users (username, email, password) VALUES (?, ?, ?)'
-    );
-    // '?' işaretlerinin yerine sırasıyla değerleri koyar ve çalıştırır
-    // INSERT/UPDATE/DELETE işlemleri için .run() kullanılır
-    const result = stmt.run(username, email, hashedPassword);
-    // Eklenen satırın otomatik atanan ID'sini döner
-    return result.lastInsertRowid;
-}
+const userModel = {
+  create(username, email, hashedPassword) {
+    const result = db.prepare(
+      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)'
+    ).run(username, email, hashedPassword);
+    return { id: result.lastInsertRowid, username, email };
+  },
 
-function findByEmail(email) {
-    // Tek satır döner — bulunamazsa undefined döner
-    // '?' parametreli sorgu: SQL Injection'a karşı koruma sağlar
+  findByEmail(email) {
     return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-}
+  },
 
-function findById(id) {
-    // Tek satır döner — bulunamazsa undefined döner
-    return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-}
+  findById(id) {
+    return db.prepare(
+      'SELECT id, username, email, created_at FROM users WHERE id = ?'
+    ).get(id);
+  },
 
-// Bu üç fonksiyonu dışarıya açar — başka dosyalar require() ile kullanabilir
-module.exports = { createUser, findByEmail, findById };
+  updateUsername(id, username) {
+    db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username, id);
+    return this.findById(id);
+  },
+
+  delete(id) {
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  }
+};
+
+module.exports = userModel;

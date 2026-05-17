@@ -1,33 +1,46 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-// user.model'den sadece ihtiyaç duyulan fonksiyonları alır
-const { createUser, findByEmail } = require('../models/user.model');
+const userModel = require('../models/user.model');
 
-async function register(username, email, password) {
-  if (findByEmail(email)) throw new Error('Email already in use');
-  // Şifreyi hashle — 10 salt round, brute force'a karşı koruma
-  // async çünkü bcrypt.hash zaman alır, beklemek gerekir
-  const hashedPassword = await bcrypt.hash(password, 10);
-  // Kullanıcıyı veritabanına ekle — düz şifre değil, hash kaydedilir
-  const userId = createUser(username, email, hashedPassword);
-  // JWT token üret — içine userId gömer, 7 gün geçerli
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  return { token, userId };
-}
+// In-memory only — cleared on server restart. For production, use a Redis-backed store.
+const blacklistedTokens = new Set();
 
-async function login(email, password) {
-  // Kullanıcıyı email ile bul — bulunamazsa undefined döner
-  const user = findByEmail(email);
-  // Hem "kullanıcı yok" hem "şifre yanlış" için aynı hata mesajı —
-  // farklı mesaj verseydi saldırgan hangi email'in kayıtlı olduğunu anlardı
-  if (!user) throw new Error('Invalid credentials');
-  // Girilen düz şifreyi veritabanındaki hash ile karşılaştırır
-  // Hash'i çözmez — aynı hash'i üretip karşılaştırır
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid) throw new Error('Invalid credentials');
-  // JWT token üret — içine userId gömer, 7 gün geçerli
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  return { token, userId: user.id };
-}
+const authService = {
+  async register(username, email, password) {
+    if (!username || !email || !password) {
+      throw new Error('All fields are required');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Invalid email format');
+    }
+    if (password.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+    const hashedPassword = await bcrypt.hash(password, 12);
+    return userModel.create(username, email, hashedPassword);
+  },
 
-module.exports = { register, login };
+  async login(email, password) {
+    const user = userModel.findByEmail(email);
+    if (!user) throw new Error('Invalid email or password');
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new Error('Invalid email or password');
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    return { token, user: { id: user.id, username: user.username, email: user.email } };
+  },
+
+  logout(token) {
+    blacklistedTokens.add(token);
+  },
+
+  verifyToken(token) {
+    if (blacklistedTokens.has(token)) throw new Error('Token invalidated');
+    return jwt.verify(token, process.env.JWT_SECRET);
+  }
+};
+
+module.exports = authService;

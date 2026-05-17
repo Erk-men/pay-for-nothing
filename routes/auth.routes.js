@@ -1,30 +1,31 @@
- const express = require('express');
-  const { register, login } = require('../services/auth.service');
+const express = require('express');
+const router = express.Router();
+const authService = require('../services/auth.service');
+const requireAuth = require('../middleware/auth.middleware');
+const { loginLimiter } = require('../middleware/rateLimit');
 
-  const router = express.Router();
-
-  router.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
+  try {
     const { username, email, password } = req.body;
-    // Zorunlu alanlar eksikse 400 döner
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'username, email and password are required' });
-    }
-    try {
-      const result = await register(username, email, password);
-      res.status(201).json(result);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+    const user = await authService.register(username, email, password);
+    res.status(201).json({ message: 'Account created', user });
+  } catch (err) {
+    res.status(err.message.includes('UNIQUE') ? 409 : 400).json({ error: err.message });
+  }
+});
 
-  router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
+  try {
     const { email, password } = req.body;
-    try {
-      const result = await login(email, password);
-      res.status(200).json(result);
-    } catch (err) {
-      res.status(401).json({ error: err.message });
-    }
-  });
+    res.json(await authService.login(email, password));
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
 
-  module.exports = router;
+router.post('/logout', requireAuth, (req, res) => {
+  authService.logout(req.token);
+  res.json({ message: 'Logged out' });
+});
+
+module.exports = router;

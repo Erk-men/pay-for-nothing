@@ -1,46 +1,62 @@
-const { register, login } = require('../services/auth.service');
-    const db = require('../db/connection');
+const authService = require('../services/auth.service');
+const db = require('../db/connection');
 
-  beforeEach(() => {
-    db.exec('DELETE FROM donations');
-    db.exec('DELETE FROM users');
+beforeEach(() => {
+  db.exec('DELETE FROM donations; DELETE FROM users;');
+});
+
+describe('register', () => {
+  test('throws if username is empty', async () => {
+    await expect(authService.register('', 'a@b.com', 'password123'))
+      .rejects.toThrow('All fields are required');
   });
-  describe('Auth Service', () => {
 
-    describe('register', () => {
-      it('should register a new user and return a token', async () => {
-        const result = await register('testuser', 'test@example.com', 'password123');
-        expect(result).toHaveProperty('token');
-        expect(result).toHaveProperty('userId');
-      });
-
-      it('should throw if email is already taken', async () => {
-        await register('user2', 'duplicate@example.com', 'password123');
-        await expect(
-          register('user3', 'duplicate@example.com', 'password123')
-        ).rejects.toThrow();
-      });
-    });
-
-    describe('login', () => {
-      it('should return a token for valid credentials', async () => {
-        await register('loginuser', 'login@example.com', 'mypassword');
-        const result = await login('login@example.com', 'mypassword');
-        expect(result).toHaveProperty('token');
-      });
-
-      it('should throw if email not found', async () => {
-        await expect(
-          login('noone@example.com', 'password123')
-        ).rejects.toThrow('Invalid credentials');
-      });
-
-      it('should throw if password is wrong', async () => {
-        await register('passuser', 'pass@example.com', 'correctpass');
-        await expect(
-          login('pass@example.com', 'wrongpass')
-        ).rejects.toThrow('Invalid credentials');
-      });
-    });
-
+  test('throws if password under 8 chars', async () => {
+    await expect(authService.register('alice', 'a@b.com', '123'))
+      .rejects.toThrow('at least 8 characters');
   });
+
+  test('returns id and username (no password)', async () => {
+    const user = await authService.register('alice', 'alice@test.com', 'password123');
+    expect(user.id).toBeDefined();
+    expect(user.username).toBe('alice');
+    expect(user.password).toBeUndefined();
+  });
+});
+
+describe('login', () => {
+  test('throws on unknown email', async () => {
+    await expect(authService.login('nobody@test.com', 'anything'))
+      .rejects.toThrow('Invalid email or password');
+  });
+
+  test('throws on wrong password', async () => {
+    await authService.register('bob', 'bob@test.com', 'correctpass');
+    await expect(authService.login('bob@test.com', 'wrongpass'))
+      .rejects.toThrow('Invalid email or password');
+  });
+
+  test('returns token on valid credentials', async () => {
+    await authService.register('carol', 'carol@test.com', 'mypassword');
+    const result = await authService.login('carol@test.com', 'mypassword');
+    expect(result.token).toBeDefined();
+    expect(result.user.username).toBe('carol');
+    expect(result.user.password).toBeUndefined();
+  });
+});
+
+describe('verifyToken', () => {
+  test('throws on blacklisted token', async () => {
+    await authService.register('dave', 'dave@test.com', 'password99');
+    const { token } = await authService.login('dave@test.com', 'password99');
+    authService.logout(token);
+    expect(() => authService.verifyToken(token)).toThrow('Token invalidated');
+  });
+
+  test('returns decoded payload for valid token', async () => {
+    await authService.register('eve', 'eve@test.com', 'password88');
+    const { token } = await authService.login('eve@test.com', 'password88');
+    const decoded = authService.verifyToken(token);
+    expect(decoded.username).toBe('eve');
+  });
+});

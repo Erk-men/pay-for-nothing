@@ -1,14 +1,27 @@
 require('dotenv').config();
 const express = require('express');
-  const authRoutes = require('./routes/auth.routes');
-  const donationRoutes = require('./routes/donation.routes');
+const helmet = require('helmet');
+const cors = require('cors');
+const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger/swagger.json');
 
-  const app = express();
+const app = express();
 
-  // Gelen JSON body'leri parse eder — olmadan req.body undefined gelir
-  app.use(express.json());
-  app.use('/api/donations', donationRoutes);
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000' }));
+app.use(express.json());
 
-  app.use('/api/auth', authRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/users', require('./routes/user.routes'));
+app.use('/api/donations', require('./routes/donation.routes'));
+app.use('/api/leaderboard', require('./routes/leaderboard.routes'));
+app.use('/api/certificate', require('./routes/certificate.routes'));
 
-  module.exports = app; // app.js sadece Express uygulamasını kurar ve route'ları bağlar, dinleme işlemi server.js'de yapılır   
+app.use(express.static(path.join(__dirname, 'public')));
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+module.exports = app;
